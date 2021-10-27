@@ -3,7 +3,6 @@ package com.example.mediaplayer.ui
 import android.annotation.SuppressLint
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
 import com.example.mediaplayer.model.Track
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -12,8 +11,10 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(application: Application): AndroidViewModel(application) {
 
     var player: SimpleExoPlayer? = null
+    var currentIndex = 0
+    var isPlaying = true
+    var trackList = emptyList<Track>()
     private var playWhenReady = true
-    private var currentWindow = 0
     private var playbackPosition = 0L
 
     @SuppressLint("StaticFieldLeak")
@@ -26,7 +27,7 @@ class MainViewModel @Inject constructor(application: Application): AndroidViewMo
             .build()
             .also { exoPlayer ->
                 exoPlayer.playWhenReady = playWhenReady
-                exoPlayer.seekTo(currentWindow, playbackPosition)
+                exoPlayer.seekTo(currentIndex, playbackPosition)
                 exoPlayer.prepare()
 
                 trackList.forEach {
@@ -34,13 +35,18 @@ class MainViewModel @Inject constructor(application: Application): AndroidViewMo
                     exoPlayer.addMediaItem(mediaItem)
                 }
             }
+        this.trackList = trackList
         return player as SimpleExoPlayer
+    }
+
+    fun getCurrentTrack(): Track {
+        return trackList[currentIndex]
     }
 
     fun releasePlayer() {
         player?.run {
             playbackPosition = this.currentPosition
-            currentWindow = this.currentWindowIndex
+            currentIndex = this.currentWindowIndex
             playWhenReady = this.playWhenReady
             release()
         }
@@ -49,19 +55,20 @@ class MainViewModel @Inject constructor(application: Application): AndroidViewMo
 
     fun next() {
         player?.seekToNext()
+        currentIndex++
+        isPlaying = true
+        player?.playWhenReady = true
     }
 
     fun prev() {
         player?.seekToPrevious()
+        currentIndex--
+        isPlaying = true
+        player?.playWhenReady = true
     }
 
     fun play() {
-        player?.playWhenReady = this.playWhenReady
+        isPlaying = !isPlaying
+        player?.playWhenReady = isPlaying
     }
-
-    fun stop() {
-        player?.playWhenReady = this.playWhenReady
-    }
-
-
 }

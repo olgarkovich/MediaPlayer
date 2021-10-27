@@ -4,15 +4,12 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProviders
 import coil.load
 import com.example.mediaplayer.R
 import com.example.mediaplayer.appComponent
 import com.example.mediaplayer.databinding.ActivityMainBinding
 import com.example.mediaplayer.json.TrackCatalog
-import com.example.mediaplayer.model.Track
 import com.example.mediaplayer.res.AppResources
-import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.util.Util
 import javax.inject.Inject
 
@@ -20,13 +17,7 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var viewModelFactory: ViewModelProvider.Factory
-    private var exoPlayer: SimpleExoPlayer? = null
     private lateinit var viewModel: MainViewModel
-
-    private var currentIndex = 0
-    private var isPlaying = true
-
-    private var trackList = emptyList<Track>()
 
     @Inject
     lateinit var appResources: AppResources
@@ -44,41 +35,36 @@ class MainActivity : AppCompatActivity() {
 
         this.appComponent.inject(this)
 
-        viewModel = ViewModelProviders.of(this, viewModelFactory)
+        viewModel = ViewModelProvider(this, viewModelFactory)
             .get(MainViewModel::class.java)
-
-        trackList = trackCatalog.getTrackCatalog()
     }
-
 
     public override fun onStart() {
         super.onStart()
         if (Util.SDK_INT >= 24) {
             initView()
-            setListeners()
         }
     }
 
     public override fun onResume() {
         super.onResume()
-        if ((Util.SDK_INT < 24 || exoPlayer == null)) {
+        if ((Util.SDK_INT < 24)) {
             initView()
-            setListeners()
         }
     }
 
     private fun initView() {
-        exoPlayer = viewModel.getMediaPlayer(trackList)
-        currentIndex = exoPlayer?.currentWindowIndex ?: 0
+        viewModel.getMediaPlayer(trackCatalog.getTrackCatalog())
         renderData()
         setEnableControls()
+        setListeners()
     }
 
     private fun renderData() {
-        viewBinding.title.text = trackList[currentIndex].title
-        viewBinding.artist.text = trackList[currentIndex].artist
+        viewBinding.title.text = viewModel.getCurrentTrack().title
+        viewBinding.artist.text = viewModel.getCurrentTrack().artist
 
-        viewBinding.cover.load(trackList[currentIndex].coverUrl) {
+        viewBinding.cover.load(viewModel.getCurrentTrack().coverUrl) {
             crossfade(true)
             placeholder(R.drawable.ic_baseline_music_video_24)
             allowHardware(false)
@@ -87,7 +73,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderButton() {
-        if (isPlaying) {
+        if (viewModel.isPlaying) {
             viewBinding.playButton.setImageDrawable(
                 AppCompatResources.getDrawable(
                     this,
@@ -105,35 +91,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setListeners() {
-
         viewBinding.prevButton.setOnClickListener {
             viewModel.prev()
-            isPlaying = true
-            currentIndex--
             renderData()
             setEnableControls()
         }
         viewBinding.nextButton.setOnClickListener {
             viewModel.next()
-            isPlaying = true
-            currentIndex++
             renderData()
             setEnableControls()
         }
         viewBinding.playButton.setOnClickListener {
-            if (isPlaying) {
-                viewModel.stop()
-            } else {
-                viewModel.play()
-            }
-            isPlaying = !isPlaying
+            viewModel.play()
             renderButton()
         }
     }
 
     private fun setEnableControls() {
-        viewBinding.prevButton.isEnabled = currentIndex != 0
-        viewBinding.nextButton.isEnabled = currentIndex != trackList.lastIndex
+        viewBinding.prevButton.isEnabled = viewModel.currentIndex != 0
+        viewBinding.nextButton.isEnabled = viewModel.currentIndex != viewModel.trackList.lastIndex
     }
 
     public override fun onPause() {
